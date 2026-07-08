@@ -1,0 +1,39 @@
+[project]
+name = "scholar-to-market"
+version = "0.1.0"
+description = "Link academic research to commercialization signals with a multithreaded data pipeline + RAG over OpenAlex and patents."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Joshua Paik" }]
+dependencies = [
+    "requests>=2.32",
+    "chromadb>=0.5.5",
+    "sentence-transformers>=3.2",
+    "openai>=1.51",           # OpenAI-compatible LLM client
+    "python-dotenv>=1.0",
+    "pandas>=2.2",
+    "tqdm>=4.66",
+    "streamlit>=1.38",
+    "altair>=5.4",            # charts in the dashboard
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.6"]
+
+[project.scripts]
+s2m = "scholar_to_market.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
