@@ -34,26 +34,7 @@ Beam, Prime Medicine).
 
 ## Architecture
 
-```
-                    ┌───────────── OpenAlex API ─────────────┐
-   query ──────────►│  ThreadPoolExecutor: N pages in parallel│
- "CRISPR gene       │  retry + backoff, dedup, normalize      │
-  editing"          └───────────────────┬─────────────────────┘
-                                        ▼  works.jsonl
-                        ┌───────────────────────────────┐
-                        │  Index: MiniLM embeddings →    │
-                        │  Chroma vector store           │
-                        └───────┬───────────────┬────────┘
-                                │               │
-              question ─► RAG (cited answers)   │  ┌── PatentsView / sample
-                                │               ▼  ▼
-                                │        ┌─────────────────────────────┐
-                                │        │  Analytics + paper↔patent    │
-                                ▼        │  linkage (semantic match)    │
-                         cited answer    └──────────────┬──────────────┘
-                                                        ▼
-                                          Streamlit dashboard / CLI report
-```
+![Scholar-to-Market architecture: OpenAlex ingestion → index → RAG/analytics → dashboard](docs/architecture.png)
 
 **Pipeline:** `ingest` → `index` → `ask` / `report` / dashboard.
 
@@ -88,11 +69,15 @@ s2m report
 s2m ask "Which companies are developing in vivo CRISPR therapies?"
 ```
 
-Or launch the dashboard:
+Or do it all from the browser — launch the dashboard and use the **Corpus**
+panel to ingest any topic and rebuild the index without touching the terminal:
 
 ```bash
 streamlit run src/scholar_to_market/dashboard/app.py
 ```
+
+The dashboard shows headline metrics, publication trends, top industry players
+and funders, the paper↔patent linkage table, and a cited RAG "Ask the corpus" box.
 
 ### Credentials
 
