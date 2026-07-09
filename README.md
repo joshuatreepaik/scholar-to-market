@@ -1,10 +1,9 @@
 # Scholar-to-Market
 
 **Linking academic research to commercialization signals.** A data pipeline that
-ingests scholarly works from **OpenAlex** (and patents from **PatentsView**),
-indexes them for retrieval-augmented Q&A, and computes commercialization
-analytics — which labs, companies, and technologies are moving discoveries
-toward market.
+ingests scholarly works from **OpenAlex** (and **USPTO patents**), indexes them
+for retrieval-augmented Q&A, and computes commercialization analytics — which
+labs, companies, and technologies are moving discoveries toward market.
 
 Built as a tech-scouting tool for research-commercialization: *given a research
 area, who is publishing, which companies are involved, what patents exist, and
@@ -14,6 +13,8 @@ builds the corpus on demand from a query. The examples below use **CRISPR / gene
 editing**, a canonical academia-to-startup pipeline (Editas, Intellia, Caribou,
 Beam, Prime Medicine).
 
+![Scholar-to-Market dashboard headlining the GLP-1 obesity-drugs corpus: overview metrics, a publication-volume trend, and the top industry players (Novo Nordisk, Eli Lilly)](docs/dashboard1.png)
+
 ---
 
 ## Why this exists / what it demonstrates
@@ -21,7 +22,7 @@ Beam, Prime Medicine).
 | Capability | Where it lives |
 | --- | --- |
 | **Multithreaded ingestion** of a large public dataset | [`ingest/openalex.py`](src/scholar_to_market/ingest/openalex.py) — `ThreadPoolExecutor` fan-out over API pages with retry/backoff |
-| **Working with named innovation datasets** | OpenAlex (250M+ works) + PatentsView (USPTO patents) |
+| **Working with named innovation datasets** | OpenAlex (250M+ works) + USPTO patents |
 | **LLM-based tooling** | Retrieval-augmented, **cited** Q&A over the corpus ([`rag.py`](src/scholar_to_market/rag.py)) |
 | **Turning raw fields into decision metrics** | Commercialization-readiness score, industry involvement, citation momentum ([`analytics.py`](src/scholar_to_market/analytics.py)) |
 | **Entity linkage** | Paper ↔ patent matching via semantic search |
@@ -93,6 +94,16 @@ touching the terminal: click a trending-topic chip (or type any query), set the
 size, and hit **Ingest & reindex**. Everything re-fetches from OpenAlex and
 re-embeds live.
 
+Leading institutions and funding sources for the loaded topic:
+
+![Leading institutions and funding sources tables for the GLP-1 corpus, led by the University of Copenhagen and Novo Nordisk](docs/dashboard2.png)
+
+Research-to-patent linkage — each patent matched to its nearest papers by
+semantic similarity (here, MedImmune and Eli Lilly GLP-1 patents linked to
+GLP-1/obesity papers):
+
+![Research-to-patent linkage table showing GLP-1 patents matched to GLP-1 papers with similarity scores](docs/dashboard3.png)
+
 ### Credentials
 
 - **OpenAlex** — no key needed; set `OPENALEX_MAILTO` to join the faster "polite pool."
@@ -107,7 +118,8 @@ re-embeds live.
   2. **Bulk dataset** (keyless, offline) — download `g_patent.tsv` from
      [PatentsView](https://patentsview.org/download/) and set `PATENTSVIEW_BULK_TSV`;
      the loader streams the multi-GB file line-by-line.
-  3. **Bundled CRISPR sample** (default) — so linkage runs with no setup.
+  3. **Curated reference set** (default) — a bundled file of real granted patents
+     spanning the trending topics, so linkage runs for any of them with no setup.
 
 ---
 
@@ -148,15 +160,15 @@ scholar-to-market/
 │   ├── config.py              # env-driven settings
 │   ├── ingest/
 │   │   ├── openalex.py        # multithreaded works ingestion
-│   │   └── patents.py         # PatentsView + sample fallback
+│   │   └── patents.py         # USPTO ODP / bulk TSV / reference set
 │   ├── index.py               # embed → Chroma
 │   ├── rag.py                 # retrieval + cited synthesis
 │   ├── analytics.py           # metrics, readiness, paper↔patent linkage
 │   ├── dashboard/app.py       # Streamlit UI
-│   ├── samples/               # bundled sample patents
+│   ├── samples/               # curated reference patents
 │   └── cli.py                 # `s2m` entry point
 ├── tests/                     # pytest unit tests (no network)
-├── docs/architecture.png      # diagram used above
+├── docs/                      # architecture diagram + dashboard screenshots
 ├── .streamlit/config.toml     # dashboard theme
 ├── .github/workflows/ci.yml   # lint + test on every push
 └── pyproject.toml

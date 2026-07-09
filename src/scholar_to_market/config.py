@@ -24,7 +24,7 @@ OPENALEX_MAILTO = os.getenv("OPENALEX_MAILTO", "")
 #   1. USPTO Open Data Portal API key (live search, any topic).
 #      Get a free key at https://data.uspto.gov/apis/getting-started
 #   2. A downloaded PatentsView/ODP bulk TSV (keyless, streamed).
-#   3. Bundled CRISPR sample (default).
+#   3. Curated multi-topic reference set (default; no setup).
 USPTO_ODP_API_KEY = os.getenv("USPTO_ODP_API_KEY", "")
 PATENTSVIEW_BULK_TSV = os.getenv("PATENTSVIEW_BULK_TSV", "")
 

@@ -56,8 +56,11 @@ def get_collection(reset: bool = False):
             client.delete_collection(config.COLLECTION_NAME)
         except Exception:
             pass
+    # Cosine space so a query distance of `d` gives cosine similarity `1 - d`.
     return client.get_or_create_collection(
-        name=config.COLLECTION_NAME, embedding_function=emb_fn
+        name=config.COLLECTION_NAME,
+        embedding_function=emb_fn,
+        metadata={"hnsw:space": "cosine"},
     )
 
 
