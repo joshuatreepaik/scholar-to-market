@@ -6,6 +6,7 @@ Run with:
 """
 from __future__ import annotations
 
+import html
 import json
 import sys
 from pathlib import Path
@@ -201,11 +202,12 @@ LOADED_TOPIC = _topics.iloc[0]["topic"] if not _topics.empty else "research"
 CORPUS_QUERY = st.session_state.get("query") or _corpus_query() or LOADED_TOPIC
 
 # --- Masthead: the topic is the headline ------------------------------------
+# Escape user- and API-provided strings before injecting into HTML.
 st.markdown(
     '<div class="s2m-kicker">Scholar-to-Market · Research Commercialization Analytics</div>'
-    f'<div class="s2m-title">{CORPUS_QUERY}</div>'
+    f'<div class="s2m-title">{html.escape(str(CORPUS_QUERY))}</div>'
     f'<p class="s2m-sub">{len(df):,} works from OpenAlex · '
-    f'dominant field: {LOADED_TOPIC}</p>'
+    f'dominant field: {html.escape(str(LOADED_TOPIC))}</p>'
     '<hr class="s2m-rule">',
     unsafe_allow_html=True,
 )
