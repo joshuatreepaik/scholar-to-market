@@ -40,3 +40,9 @@ def patents_path() -> Path:
     """Canonical JSONL file of ingested patents."""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     return DATA_DIR / "patents.jsonl"
+
+
+def corpus_meta_path() -> Path:
+    """Small JSON sidecar recording what the current corpus is (the search query)."""
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    return DATA_DIR / "corpus_meta.json"

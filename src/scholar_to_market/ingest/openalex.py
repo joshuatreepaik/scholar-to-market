@@ -194,6 +194,9 @@ def ingest(query: str, max_records: int = 1000, workers: int | None = None) -> P
     works = fetch_works(query, max_records=max_records, workers=workers)
     out = config.works_path()
     n = write_jsonl(works, out)
+    # Record what this corpus is, so the dashboard can label itself.
+    with open(config.corpus_meta_path(), "w", encoding="utf-8") as f:
+        json.dump({"query": query, "count": n}, f)
     print(f"Wrote {n} works to {out}")
     return out
 

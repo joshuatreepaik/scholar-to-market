@@ -6,6 +6,7 @@ Run with:
 """
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -26,6 +27,18 @@ INK = "#222b36"       # primary text
 MUTED = "#6b7683"     # secondary text
 ACCENT = "#33566e"    # single restrained accent (steel navy)
 RULE = "#e4e7ea"      # hairline borders
+
+# Trending (2025-2026) research areas with strong academia -> industry pipelines.
+SUGGESTED_TOPICS = [
+    "GLP-1 obesity drugs",
+    "large language models",
+    "mRNA cancer vaccine",
+    "humanoid robots",
+    "solid-state battery",
+    "nuclear fusion energy",
+    "quantum computing",
+    "direct air capture",
+]
 
 CSS = f"""
 <style>
@@ -75,12 +88,18 @@ CSS = f"""
   }}
   [data-testid="stMetricDelta"] {{ color: {MUTED} !important; }}
 
-  /* Buttons / inputs */
-  .stButton > button {{
+  /* Primary action button */
+  .stButton > button[kind="primary"] {{
     background: {ACCENT}; color: #fff; border: none; border-radius: 5px;
     font-weight: 600; padding: 0.4rem 1.1rem;
   }}
-  .stButton > button:hover {{ background: #294353; color: #fff; }}
+  .stButton > button[kind="primary"]:hover {{ background: #294353; color: #fff; }}
+  /* Suggested-topic chips (secondary buttons) */
+  .stButton > button[kind="secondary"] {{
+    background: #fff; color: {INK}; border: 1px solid {RULE}; border-radius: 999px;
+    font-weight: 500; font-size: 0.78rem; padding: 0.22rem 0.55rem;
+  }}
+  .stButton > button[kind="secondary"]:hover {{ border-color: {ACCENT}; color: {ACCENT}; }}
   [data-testid="stDataFrame"] {{ border: 1px solid {RULE}; border-radius: 6px; }}
 </style>
 """
@@ -121,10 +140,21 @@ def _load() -> pd.DataFrame:
 # --- Sidebar: build / switch the corpus without leaving the browser ---------
 with st.sidebar:
     st.markdown("#### Corpus")
-    st.caption("Fetch a new research area from OpenAlex and rebuild the index.")
-    query = st.text_input("Topic or query", st.session_state.get("query", "CRISPR gene editing"))
+    st.caption("Fetch a research area from OpenAlex and rebuild the index.")
+
+    # The text box is the source of truth; suggestion chips write into it.
+    st.session_state.setdefault("query_text", st.session_state.get("query", "CRISPR gene editing"))
+
+    st.caption("Suggested topics")
+    chip_cols = st.columns(2)
+    for i, topic in enumerate(SUGGESTED_TOPICS):
+        if chip_cols[i % 2].button(topic, key=f"rec_{i}", type="secondary",
+                                   use_container_width=True):
+            st.session_state["query_text"] = topic  # set before the text_input is drawn
+
+    query = st.text_input("Topic or query", key="query_text")
     n = st.slider("Max works", min_value=100, max_value=2000, value=600, step=100)
-    if st.button("Ingest & reindex", use_container_width=True):
+    if st.button("Ingest & reindex", type="primary", use_container_width=True):
         try:
             with st.spinner(f"Ingesting “{query}” from OpenAlex…"):
                 openalex.ingest(query, max_records=n)
@@ -141,30 +171,42 @@ with st.sidebar:
                "is set, otherwise a bundled CRISPR sample.")
 
 
-# --- Masthead ---------------------------------------------------------------
-st.markdown(
-    '<div class="s2m-kicker">Research Commercialization Analytics</div>'
-    '<div class="s2m-title">Scholar-to-Market</div>'
-    '<p class="s2m-sub">Linking academic research to commercialization signals '
-    'across OpenAlex publications and patents.</p>'
-    '<hr class="s2m-rule">',
-    unsafe_allow_html=True,
-)
-
+# --- Load the corpus, then headline it by its topic ------------------------
 try:
     df = _load()
 except FileNotFoundError:
-    st.warning(f'No data yet. Run  `s2m ingest "CRISPR gene editing" -n 600`  then  '
-               f'`s2m index`  to populate {config.works_path()}.')
+    st.markdown(
+        '<div class="s2m-kicker">Scholar-to-Market · Research Commercialization Analytics</div>'
+        '<div class="s2m-title">No corpus loaded</div><hr class="s2m-rule">',
+        unsafe_allow_html=True,
+    )
+    st.warning(f'Use the **Corpus** panel on the left to ingest a topic, or run  '
+               f'`s2m ingest "CRISPR gene editing" -n 600`  then  `s2m index`.')
     st.stop()
 
-# What's currently loaded, so questions/linkage are read in the right context.
+
+def _corpus_query() -> str | None:
+    """The search query used to build this corpus (recorded at ingest time)."""
+    p = config.corpus_meta_path()
+    if p.exists():
+        try:
+            return json.load(open(p, encoding="utf-8")).get("query")
+        except Exception:  # noqa: BLE001
+            return None
+    return None
+
+
 _topics = analytics.top_topics(df, 1)
 LOADED_TOPIC = _topics.iloc[0]["topic"] if not _topics.empty else "research"
+CORPUS_QUERY = st.session_state.get("query") or _corpus_query() or LOADED_TOPIC
+
+# --- Masthead: the topic is the headline ------------------------------------
 st.markdown(
-    f'<p style="color:{MUTED};font-size:0.85rem;margin:-0.6rem 0 0.4rem;">'
-    f'Loaded corpus: <b style="color:{INK}">{len(df):,} works</b> · '
-    f'dominant topic <b style="color:{INK}">{LOADED_TOPIC}</b></p>',
+    '<div class="s2m-kicker">Scholar-to-Market · Research Commercialization Analytics</div>'
+    f'<div class="s2m-title">{CORPUS_QUERY}</div>'
+    f'<p class="s2m-sub">{len(df):,} works from OpenAlex · '
+    f'dominant field: {LOADED_TOPIC}</p>'
+    '<hr class="s2m-rule">',
     unsafe_allow_html=True,
 )
 
