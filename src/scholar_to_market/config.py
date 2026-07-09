@@ -20,7 +20,9 @@ LLM_MODEL = os.getenv("LLM_MODEL", "llama4:latest")
 
 # --- Data sources ---
 OPENALEX_MAILTO = os.getenv("OPENALEX_MAILTO", "")
-PATENTSVIEW_API_KEY = os.getenv("PATENTSVIEW_API_KEY", "")
+# Path to a downloaded PatentsView/ODP bulk TSV (keyless). If set, patents are
+# streamed from it; otherwise the pipeline uses the bundled sample.
+PATENTSVIEW_BULK_TSV = os.getenv("PATENTSVIEW_BULK_TSV", "")
 
 # --- Embeddings ---
 EMBED_MODEL = os.getenv("EMBED_MODEL", "sentence-transformers/all-MiniLM-L6-v2")

@@ -99,9 +99,13 @@ re-embeds live.
 - **LLM** (for `ask`) — any OpenAI-compatible endpoint. Set `LLM_API_KEY`,
   `LLM_BASE_URL`, `LLM_MODEL` in `.env` (OpenAI, a university GenAI gateway, or a
   local GPT4All/Ollama server all work).
-- **Patents** — optional free [PatentsView API key](https://patentsview.org/apis/keyrequest).
-  Without it, the pipeline uses a small bundled sample of real CRISPR patents so
-  linkage still runs.
+- **Patents** — no key needed. USPTO is retiring the hosted PatentsView Search
+  API during its [Open Data Portal](https://data.uspto.gov/) transition, but the
+  **bulk datasets stay freely downloadable**. Download `g_patent.tsv` from
+  [PatentsView](https://patentsview.org/download/) and set `PATENTSVIEW_BULK_TSV`
+  to it — the loader streams the multi-GB file line-by-line and matches patents
+  to your topic. If unset, a small bundled sample of real CRISPR patents is used
+  so linkage still runs.
 
 ---
 

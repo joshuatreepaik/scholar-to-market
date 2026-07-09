@@ -76,7 +76,30 @@ def test_readiness_score_in_range():
 
 
 def test_patents_sample_fallback_loads():
-    # With no API key set, fetch_patents returns the bundled sample.
+    # With no bulk file configured, fetch_patents returns the bundled sample.
     pats = patents.fetch_patents("CRISPR")
     assert len(pats) >= 5
     assert all({"id", "title", "assignee"} <= set(p) for p in pats)
+
+
+def test_active_source_defaults_to_sample():
+    key, label = patents.active_source()
+    assert key == "sample"
+    assert "sample" in label.lower()
+
+
+def test_load_from_bulk_filters_and_normalizes(tmp_path):
+    tsv = tmp_path / "g_patent.tsv"
+    tsv.write_text(
+        "patent_id\tpatent_title\tpatent_date\tpatent_abstract\tassignee\n"
+        "111\tGLP-1 receptor agonist formulation\t2021-05-01\tA peptide for obesity.\tNovo Nordisk\n"
+        "222\tWidget for gardening\t2019-03-02\tUnrelated tool.\tAcme\n"
+        "333\tGLP-1 analog delivery device\t2023-01-10\tInjection pen.\tEli Lilly\n",
+        encoding="utf-8",
+    )
+    recs = patents.load_from_bulk(str(tsv), "GLP-1 obesity", max_records=10)
+    ids = {r["id"] for r in recs}
+    assert ids == {"111", "333"}          # gardening widget filtered out
+    r = next(r for r in recs if r["id"] == "111")
+    assert r["assignee"] == "Novo Nordisk"
+    assert r["year"] == 2021

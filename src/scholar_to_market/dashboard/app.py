@@ -167,8 +167,8 @@ with st.sidebar:
         except Exception as e:  # noqa: BLE001
             st.error(f"Ingest failed: {e}")
     st.divider()
-    st.caption("Patent linkage uses the PatentsView API when `PATENTSVIEW_API_KEY` "
-               "is set, otherwise a bundled CRISPR sample.")
+    st.caption("Patent linkage streams a `PATENTSVIEW_BULK_TSV` file when set, "
+               "otherwise a bundled CRISPR sample.")
 
 
 # --- Load the corpus, then headline it by its topic ------------------------
@@ -180,8 +180,8 @@ except FileNotFoundError:
         '<div class="s2m-title">No corpus loaded</div><hr class="s2m-rule">',
         unsafe_allow_html=True,
     )
-    st.warning(f'Use the **Corpus** panel on the left to ingest a topic, or run  '
-               f'`s2m ingest "CRISPR gene editing" -n 600`  then  `s2m index`.')
+    st.warning('Use the **Corpus** panel on the left to ingest a topic, or run  '
+               '`s2m ingest "CRISPR gene editing" -n 600`  then  `s2m index`.')
     st.stop()
 
 
@@ -266,9 +266,17 @@ with right2:
 # --- Linkage ----------------------------------------------------------------
 section("05", "Research-to-patent linkage",
         "Each patent matched to its nearest papers by embedding similarity.")
+src_key, src_label = patents.active_source()
+if src_key == "sample" and "crispr" not in CORPUS_QUERY.lower():
+    st.warning(
+        f"Linkage is running against the **bundled CRISPR sample patents**, so "
+        f"scores are only meaningful for a CRISPR corpus — not “{CORPUS_QUERY}.” "
+        f"Set `PATENTSVIEW_BULK_TSV` to a downloaded PatentsView/ODP bulk file to "
+        f"match patents to the loaded topic.",
+        icon="ℹ️",
+    )
 try:
-    _pquery = st.session_state.get("query", "CRISPR").split()[0]
-    pats = patents.fetch_patents(_pquery)
+    pats = patents.fetch_patents(CORPUS_QUERY)
     rows = []
     for link in analytics.link_patents_to_papers(pats, k=2):
         for lp in link["linked_papers"]:
@@ -280,6 +288,7 @@ try:
                 "paper year": lp["year"],
             })
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    st.caption(f"Patent source: {src_label}.")
 except Exception as e:  # noqa: BLE001
     st.info(f"Linkage needs an index. Run `s2m index` first. ({e})")
 
