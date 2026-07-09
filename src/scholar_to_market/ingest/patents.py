@@ -1,48 +1,94 @@
 """
-Patent ingestion.
+Patent ingestion, with three keyless-or-keyed sources tried in priority order.
 
-The legacy PatentsView *Search* API (search.patentsview.org/api) is being retired
-as USPTO migrates to the Open Data Portal (ODP). Previously-issued keys won't
-carry over and there is no firm relaunch date for the hosted search endpoints.
-Patent **bulk datasets**, however, remain freely downloadable with **no key**
-(via ODP's Bulk Datasets API / PatentsView downloads).
+USPTO retired the legacy PatentsView *Search* API during its Open Data Portal
+(ODP) migration. The sources this module supports now:
 
-This module therefore supports two keyless sources, in priority order:
-
-  1. A downloaded PatentsView/ODP **bulk TSV** — set ``PATENTSVIEW_BULK_TSV`` to
-     the file path. It is streamed line-by-line, so it scales to the full
-     multi-GB ``g_patent.tsv`` without loading it into memory.
-  2. A small **bundled sample** of real CRISPR patents (default) so the
-     paper-to-patent linkage runs with no downloads or credentials.
+  1. **USPTO ODP search API** (live, any topic) — set ``USPTO_ODP_API_KEY``.
+     A free key from https://data.uspto.gov/apis/getting-started queries
+     ``POST https://api.uspto.gov/api/v1/patent/applications/search`` by invention
+     title and returns granted patents matching the loaded topic.
+  2. **Bulk TSV** (keyless, any topic) — set ``PATENTSVIEW_BULK_TSV`` to a
+     downloaded ``g_patent.tsv``; it is streamed line-by-line (scales to GBs).
+  3. **Bundled CRISPR sample** (default) — so linkage runs with no setup.
 """
 from __future__ import annotations
 
 import csv
 import json
+import re
 from pathlib import Path
 from typing import Any
+
+import requests
 
 from .. import config
 
 SAMPLE_FILE = Path(__file__).resolve().parent.parent / "samples" / "patents_crispr.jsonl"
+ODP_SEARCH_URL = "https://api.uspto.gov/api/v1/patent/applications/search"
 
-# Increase the TSV field-size limit; bulk patent abstracts can be long.
+# Bulk patent abstracts can be long; raise the TSV field-size limit.
 csv.field_size_limit(10_000_000)
 
 
 def active_source() -> tuple[str, str]:
     """Which patent source will be used, as (key, human-readable label)."""
+    if config.USPTO_ODP_API_KEY:
+        return "odp", "USPTO Open Data Portal (live)"
     bulk = config.PATENTSVIEW_BULK_TSV
     if bulk and Path(bulk).exists():
         return "bulk", f"PatentsView bulk file ({Path(bulk).name})"
     return "sample", "bundled CRISPR sample patents"
 
 
-def _load_sample() -> list[dict[str, Any]]:
-    with open(SAMPLE_FILE, encoding="utf-8") as f:
-        return [json.loads(line) for line in f if line.strip()]
+# --------------------------------------------------------------------------- #
+# 1) USPTO Open Data Portal (live search)
+# --------------------------------------------------------------------------- #
+def _odp_query(query: str) -> str:
+    """Build an ODP query string matching the topic against invention titles."""
+    tokens = [t for t in re.findall(r"[A-Za-z0-9]+", query) if len(t) > 2][:4]
+    if not tokens:
+        return f"applicationMetaData.inventionTitle:{query}"
+    return " AND ".join(f"applicationMetaData.inventionTitle:{t}" for t in tokens)
 
 
+def fetch_from_odp(query: str, max_records: int, api_key: str) -> list[dict[str, Any]]:
+    """Query the USPTO ODP search API and return granted patents on the topic."""
+    body = {
+        "q": _odp_query(query),
+        "pagination": {"offset": 0, "limit": min(max(max_records * 3, 25), 100)},
+    }
+    headers = {"X-API-KEY": api_key, "Content-Type": "application/json"}
+    resp = requests.post(ODP_SEARCH_URL, headers=headers, json=body, timeout=60)
+    resp.raise_for_status()
+    bag = resp.json().get("patentFileWrapperDataBag", []) or []
+
+    out: list[dict[str, Any]] = []
+    for item in bag:
+        md = item.get("applicationMetaData", {}) or {}
+        pnum = md.get("patentNumber")
+        if not pnum:  # keep granted patents only (applications have no number yet)
+            continue
+        grant = md.get("grantDate", "") or ""
+        applicants = md.get("applicantBag") or []
+        assignee = md.get("firstApplicantName") or (
+            applicants[0].get("applicantNameText") if applicants else ""
+        )
+        out.append({
+            "id": f"US{pnum}",
+            "title": md.get("inventionTitle", "") or "",
+            "assignee": assignee or "Unknown",
+            "year": int(grant[:4]) if grant[:4].isdigit() else None,
+            "abstract": "",  # not returned by the file-wrapper search
+        })
+        if len(out) >= max_records:
+            break
+    return out
+
+
+# --------------------------------------------------------------------------- #
+# 2) Bulk TSV (streamed)
+# --------------------------------------------------------------------------- #
 def _pick(row: dict[str, str], *names: str) -> str:
     for n in names:
         if row.get(n):
@@ -51,7 +97,6 @@ def _pick(row: dict[str, str], *names: str) -> str:
 
 
 def _normalize_row(row: dict[str, str]) -> dict[str, Any]:
-    """Map a bulk-TSV row to our patent schema (column names vary by export)."""
     date = _pick(row, "patent_date", "date")
     return {
         "id": _pick(row, "patent_id", "id", "patent_number"),
@@ -65,11 +110,7 @@ def _normalize_row(row: dict[str, str]) -> dict[str, Any]:
 
 def load_from_bulk(path: str, query: str, max_records: int = 100,
                    max_scan: int = 3_000_000) -> list[dict[str, Any]]:
-    """Stream a bulk patent TSV and keep rows matching ``query``.
-
-    Matches rows whose title/abstract contains any meaningful query token.
-    Scans at most ``max_scan`` rows so a run against the full file stays bounded.
-    """
+    """Stream a bulk patent TSV and keep rows whose text matches ``query``."""
     tokens = [t.lower() for t in query.split() if len(t) > 3]
     out: list[dict[str, Any]] = []
     with open(path, encoding="utf-8", newline="") as f:
@@ -88,17 +129,33 @@ def load_from_bulk(path: str, query: str, max_records: int = 100,
     return out
 
 
+# --------------------------------------------------------------------------- #
+# 3) Bundled sample
+# --------------------------------------------------------------------------- #
+def _load_sample() -> list[dict[str, Any]]:
+    with open(SAMPLE_FILE, encoding="utf-8") as f:
+        return [json.loads(line) for line in f if line.strip()]
+
+
 def fetch_patents(query: str = "CRISPR", max_records: int = 100) -> list[dict[str, Any]]:
-    """Fetch patents matching ``query`` from the best available keyless source."""
+    """Fetch patents matching ``query`` from the best available source."""
     source, _ = active_source()
-    if source == "bulk":
+    if source == "odp":
+        try:
+            recs = fetch_from_odp(query, max_records, config.USPTO_ODP_API_KEY)
+            if recs:
+                return recs
+            print("[WARN] ODP returned no granted patents; falling back to sample.")
+        except Exception as e:  # noqa: BLE001
+            print(f"[WARN] ODP request failed ({e}); falling back to sample.")
+    elif source == "bulk":
         recs = load_from_bulk(config.PATENTSVIEW_BULK_TSV, query, max_records=max_records)
         if recs:
             return recs
         print("[WARN] No matches in bulk file; falling back to bundled sample.")
     else:
         print("[INFO] Using bundled CRISPR sample patents "
-              "(set PATENTSVIEW_BULK_TSV for topic-matched patents).")
+              "(set USPTO_ODP_API_KEY for live, topic-matched patents).")
     return _load_sample()
 
 

@@ -88,6 +88,19 @@ def test_active_source_defaults_to_sample():
     assert "sample" in label.lower()
 
 
+def test_active_source_prefers_odp_key(monkeypatch):
+    monkeypatch.setattr(patents.config, "USPTO_ODP_API_KEY", "test-key")
+    key, _ = patents.active_source()
+    assert key == "odp"
+
+
+def test_odp_query_builds_title_clause():
+    q = patents._odp_query("GLP-1 obesity drugs")
+    assert "applicationMetaData.inventionTitle:obesity" in q
+    assert " AND " in q                       # multiple tokens AND-ed
+    assert "GLP" in q or "obesity" in q
+
+
 def test_load_from_bulk_filters_and_normalizes(tmp_path):
     tsv = tmp_path / "g_patent.tsv"
     tsv.write_text(

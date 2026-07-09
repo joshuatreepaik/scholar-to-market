@@ -167,8 +167,8 @@ with st.sidebar:
         except Exception as e:  # noqa: BLE001
             st.error(f"Ingest failed: {e}")
     st.divider()
-    st.caption("Patent linkage streams a `PATENTSVIEW_BULK_TSV` file when set, "
-               "otherwise a bundled CRISPR sample.")
+    st.caption("Patent linkage uses the USPTO ODP API (`USPTO_ODP_API_KEY`) when "
+               "set, then a `PATENTSVIEW_BULK_TSV` file, else a CRISPR sample.")
 
 
 # --- Load the corpus, then headline it by its topic ------------------------
@@ -271,8 +271,8 @@ if src_key == "sample" and "crispr" not in CORPUS_QUERY.lower():
     st.warning(
         f"Linkage is running against the **bundled CRISPR sample patents**, so "
         f"scores are only meaningful for a CRISPR corpus — not “{CORPUS_QUERY}.” "
-        f"Set `PATENTSVIEW_BULK_TSV` to a downloaded PatentsView/ODP bulk file to "
-        f"match patents to the loaded topic.",
+        f"Set `USPTO_ODP_API_KEY` (free) for live patents matched to the loaded "
+        f"topic, or `PATENTSVIEW_BULK_TSV` for the offline bulk file.",
         icon="ℹ️",
     )
 try:

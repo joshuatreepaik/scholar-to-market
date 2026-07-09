@@ -20,8 +20,12 @@ LLM_MODEL = os.getenv("LLM_MODEL", "llama4:latest")
 
 # --- Data sources ---
 OPENALEX_MAILTO = os.getenv("OPENALEX_MAILTO", "")
-# Path to a downloaded PatentsView/ODP bulk TSV (keyless). If set, patents are
-# streamed from it; otherwise the pipeline uses the bundled sample.
+# Patents, in priority order:
+#   1. USPTO Open Data Portal API key (live search, any topic).
+#      Get a free key at https://data.uspto.gov/apis/getting-started
+#   2. A downloaded PatentsView/ODP bulk TSV (keyless, streamed).
+#   3. Bundled CRISPR sample (default).
+USPTO_ODP_API_KEY = os.getenv("USPTO_ODP_API_KEY", "")
 PATENTSVIEW_BULK_TSV = os.getenv("PATENTSVIEW_BULK_TSV", "")
 
 # --- Embeddings ---
