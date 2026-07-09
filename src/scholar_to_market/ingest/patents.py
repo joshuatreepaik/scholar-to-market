@@ -10,7 +10,8 @@ USPTO retired the legacy PatentsView *Search* API during its Open Data Portal
      title and returns granted patents matching the loaded topic.
   2. **Bulk TSV** (keyless, any topic) — set ``PATENTSVIEW_BULK_TSV`` to a
      downloaded ``g_patent.tsv``; it is streamed line-by-line (scales to GBs).
-  3. **Bundled CRISPR sample** (default) — so linkage runs with no setup.
+  3. **Curated reference set** (default) — a bundled file of real granted patents
+     spanning the trending topics, so linkage runs with no setup or credentials.
 """
 from __future__ import annotations
 
@@ -24,7 +25,7 @@ import requests
 
 from .. import config
 
-SAMPLE_FILE = Path(__file__).resolve().parent.parent / "samples" / "patents_crispr.jsonl"
+REFERENCE_FILE = Path(__file__).resolve().parent.parent / "samples" / "patents_reference.jsonl"
 ODP_SEARCH_URL = "https://api.uspto.gov/api/v1/patent/applications/search"
 
 # Bulk patent abstracts can be long; raise the TSV field-size limit.
@@ -38,7 +39,7 @@ def active_source() -> tuple[str, str]:
     bulk = config.PATENTSVIEW_BULK_TSV
     if bulk and Path(bulk).exists():
         return "bulk", f"PatentsView bulk file ({Path(bulk).name})"
-    return "sample", "bundled CRISPR sample patents"
+    return "reference", "curated multi-topic reference patents"
 
 
 # --------------------------------------------------------------------------- #
@@ -130,10 +131,11 @@ def load_from_bulk(path: str, query: str, max_records: int = 100,
 
 
 # --------------------------------------------------------------------------- #
-# 3) Bundled sample
+# 3) Curated multi-topic reference set (bundled)
 # --------------------------------------------------------------------------- #
-def _load_sample() -> list[dict[str, Any]]:
-    with open(SAMPLE_FILE, encoding="utf-8") as f:
+def _load_reference() -> list[dict[str, Any]]:
+    """Real granted patents spanning the trending topics, for a keyless demo."""
+    with open(REFERENCE_FILE, encoding="utf-8") as f:
         return [json.loads(line) for line in f if line.strip()]
 
 
@@ -145,18 +147,18 @@ def fetch_patents(query: str = "CRISPR", max_records: int = 100) -> list[dict[st
             recs = fetch_from_odp(query, max_records, config.USPTO_ODP_API_KEY)
             if recs:
                 return recs
-            print("[WARN] ODP returned no granted patents; falling back to sample.")
+            print("[WARN] ODP returned no granted patents; falling back to reference set.")
         except Exception as e:  # noqa: BLE001
-            print(f"[WARN] ODP request failed ({e}); falling back to sample.")
+            print(f"[WARN] ODP request failed ({e}); falling back to reference set.")
     elif source == "bulk":
         recs = load_from_bulk(config.PATENTSVIEW_BULK_TSV, query, max_records=max_records)
         if recs:
             return recs
-        print("[WARN] No matches in bulk file; falling back to bundled sample.")
+        print("[WARN] No matches in bulk file; falling back to reference set.")
     else:
-        print("[INFO] Using bundled CRISPR sample patents "
-              "(set USPTO_ODP_API_KEY for live, topic-matched patents).")
-    return _load_sample()
+        print("[INFO] Using curated multi-topic reference patents "
+              "(set USPTO_ODP_API_KEY for full live coverage).")
+    return _load_reference()
 
 
 def ingest(query: str = "CRISPR", max_records: int = 100) -> Path:

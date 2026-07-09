@@ -168,7 +168,7 @@ with st.sidebar:
             st.error(f"Ingest failed: {e}")
     st.divider()
     st.caption("Patent linkage uses the USPTO ODP API (`USPTO_ODP_API_KEY`) when "
-               "set, then a `PATENTSVIEW_BULK_TSV` file, else a CRISPR sample.")
+               "set, then a `PATENTSVIEW_BULK_TSV` file, else a curated reference set.")
 
 
 # --- Load the corpus, then headline it by its topic ------------------------
@@ -267,14 +267,6 @@ with right2:
 section("05", "Research-to-patent linkage",
         "Each patent matched to its nearest papers by embedding similarity.")
 src_key, src_label = patents.active_source()
-if src_key == "sample" and "crispr" not in CORPUS_QUERY.lower():
-    st.warning(
-        f"Linkage is running against the **bundled CRISPR sample patents**, so "
-        f"scores are only meaningful for a CRISPR corpus — not “{CORPUS_QUERY}.” "
-        f"Set `USPTO_ODP_API_KEY` (free) for live patents matched to the loaded "
-        f"topic, or `PATENTSVIEW_BULK_TSV` for the offline bulk file.",
-        icon="ℹ️",
-    )
 try:
     pats = patents.fetch_patents(CORPUS_QUERY)
     rows = []
@@ -287,8 +279,14 @@ try:
                 "linked paper": lp["title"],
                 "paper year": lp["year"],
             })
-    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
-    st.caption(f"Patent source: {src_label}.")
+    # Show the strongest links first so the on-topic matches lead.
+    df_links = pd.DataFrame(rows).sort_values("similarity", ascending=False)
+    st.dataframe(df_links, use_container_width=True, hide_index=True)
+    if src_key == "reference":
+        st.caption(f"Patent source: {src_label}. Set `USPTO_ODP_API_KEY` (free) "
+                   f"or `PATENTSVIEW_BULK_TSV` for full live coverage of any topic.")
+    else:
+        st.caption(f"Patent source: {src_label}.")
 except Exception as e:  # noqa: BLE001
     st.info(f"Linkage needs an index. Run `s2m index` first. ({e})")
 

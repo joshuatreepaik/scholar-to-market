@@ -75,17 +75,24 @@ def test_readiness_score_in_range():
     assert set(r["components"]) == {"recent_activity", "industry_involvement", "citation_momentum"}
 
 
-def test_patents_sample_fallback_loads():
-    # With no bulk file configured, fetch_patents returns the bundled sample.
+def test_patents_reference_fallback_loads():
+    # With no ODP key or bulk file, fetch_patents returns the curated reference set.
     pats = patents.fetch_patents("CRISPR")
-    assert len(pats) >= 5
+    assert len(pats) >= 15                       # multi-topic coverage
     assert all({"id", "title", "assignee"} <= set(p) for p in pats)
 
 
-def test_active_source_defaults_to_sample():
+def test_reference_set_spans_multiple_topics():
+    pats = patents._load_reference()
+    text = " ".join(p["title"].lower() for p in pats)
+    for term in ("crispr", "glp", "battery", "vaccine"):
+        assert term in text
+
+
+def test_active_source_defaults_to_reference():
     key, label = patents.active_source()
-    assert key == "sample"
-    assert "sample" in label.lower()
+    assert key == "reference"
+    assert "reference" in label.lower()
 
 
 def test_active_source_prefers_odp_key(monkeypatch):
