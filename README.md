@@ -1,4 +1,4 @@
-# 🔬 Scholar-to-Market
+# Scholar-to-Market
 
 **Linking academic research to commercialization signals.** A data pipeline that
 ingests scholarly works from **OpenAlex** (and patents from **PatentsView**),
@@ -8,7 +8,9 @@ toward market.
 
 Built as a tech-scouting tool for research-commercialization: *given a research
 area, who is publishing, which companies are involved, what patents exist, and
-what does the literature actually say?* The demo focuses on **CRISPR / gene
+what does the literature actually say?* Point it at **any field** — CRISPR gene
+editing, GLP-1 obesity drugs, solid-state batteries, humanoid robots — and it
+builds the corpus on demand from a query. The examples below use **CRISPR / gene
 editing**, a canonical academia-to-startup pipeline (Editas, Intellia, Caribou,
 Beam, Prime Medicine).
 
@@ -69,15 +71,27 @@ s2m report
 s2m ask "Which companies are developing in vivo CRISPR therapies?"
 ```
 
-Or do it all from the browser — launch the dashboard and use the **Corpus**
-panel to ingest any topic and rebuild the index without touching the terminal:
+### Dashboard
+
+Or do it all from the browser:
 
 ```bash
 streamlit run src/scholar_to_market/dashboard/app.py
 ```
 
-The dashboard shows headline metrics, publication trends, top industry players
-and funders, the paper↔patent linkage table, and a cited RAG "Ask the corpus" box.
+The dashboard headlines whichever topic is loaded and shows, in one view:
+
+- **Overview metrics** — works, industry-authored share, citations, and a
+  commercialization-readiness score with a transparent breakdown.
+- **Publication trend** and **top industry players** charts.
+- **Leading institutions** and **funding sources** tables.
+- **Research-to-patent linkage** — each patent matched to its nearest papers.
+- **Ask the corpus** — a cited RAG answer box.
+
+A **Corpus** side panel lets you rebuild the whole view on a new field without
+touching the terminal: click a trending-topic chip (or type any query), set the
+size, and hit **Ingest & reindex**. Everything re-fetches from OpenAlex and
+re-embeds live.
 
 ### Credentials
 
@@ -136,9 +150,14 @@ scholar-to-market/
 │   ├── samples/               # bundled sample patents
 │   └── cli.py                 # `s2m` entry point
 ├── tests/                     # pytest unit tests (no network)
+├── docs/architecture.png      # diagram used above
+├── .streamlit/config.toml     # dashboard theme
 ├── .github/workflows/ci.yml   # lint + test on every push
 └── pyproject.toml
 ```
+
+`data/` and `chroma_store/` (the ingested corpus and vector index) are generated
+at runtime and git-ignored.
 
 ## Tech stack
 
